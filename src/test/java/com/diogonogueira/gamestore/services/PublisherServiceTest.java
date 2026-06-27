@@ -24,7 +24,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-
 @ExtendWith(MockitoExtension.class)
 class PublisherServiceTest {
     @Mock
@@ -71,35 +70,35 @@ class PublisherServiceTest {
     void shouldReturnPageOfPublisherResponsesWhenPublishersExist() {
         PageRequest pageable = PageRequest.of(0, 10);
 
-        UUID id1 = UUID.randomUUID();
-        UUID id2 = UUID.randomUUID();
+        UUID bandaiId = UUID.randomUUID();
+        UUID squareEnixId = UUID.randomUUID();
 
-        Publisher publisher1 = new Publisher(id1, "Bandai");
-        Publisher publisher2 = new Publisher(id2, "Square Enix");
+        Publisher bandai = new Publisher(bandaiId, "Bandai");
+        Publisher squareEnix = new Publisher(squareEnixId, "Square Enix");
 
-        PublisherResponse publisherResponse1 = new PublisherResponse(id1, "Bandai");
-        PublisherResponse publisherResponse2 = new PublisherResponse(id2, "Square Enix");
+        PublisherResponse bandaiResponse = new PublisherResponse(bandaiId, "Bandai");
+        PublisherResponse squareEnixResponse = new PublisherResponse(squareEnixId, "Square Enix");
 
         Page<Publisher> publisherPage = new PageImpl<>(
-                List.of(publisher1, publisher2),
+                List.of(bandai, squareEnix),
                 pageable,
                 2
         );
         when(publisherRepository.findAll(pageable))
                 .thenReturn(publisherPage);
-        when(publisherMapper.toResponse(publisher1))
-                .thenReturn(publisherResponse1);
-        when(publisherMapper.toResponse(publisher2))
-                .thenReturn(publisherResponse2);
+        when(publisherMapper.toResponse(bandai))
+                .thenReturn(bandaiResponse);
+        when(publisherMapper.toResponse(squareEnix))
+                .thenReturn(squareEnixResponse);
 
         Page<PublisherResponse> result = publisherService.findAll(pageable);
 
         assertEquals(2, result.getTotalElements());
-        assertEquals(List.of(publisherResponse1, publisherResponse2), result.getContent());
+        assertEquals(List.of(bandaiResponse, squareEnixResponse), result.getContent());
 
         verify(publisherRepository).findAll(pageable);
-        verify(publisherMapper).toResponse(publisher1);
-        verify(publisherMapper).toResponse(publisher2);
+        verify(publisherMapper).toResponse(bandai);
+        verify(publisherMapper).toResponse(squareEnix);
     }
 
     @Test
