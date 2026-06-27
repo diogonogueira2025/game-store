@@ -36,7 +36,8 @@ public class PublisherService {
     }
 
     public PublisherResponse findById(UUID id) {
-        return publisherMapper.toResponse(findEntityById(id));
+        Publisher publisher = findEntityById(id);
+        return publisherMapper.toResponse(publisher);
     }
 
     @Transactional

@@ -25,6 +25,14 @@ public class Genre implements Serializable {
     @ManyToMany(mappedBy = "genres")
     private Set<Game> games = new HashSet<>();
 
+    public Genre() {
+    }
+
+    public Genre(UUID id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
     public UUID getId() {
         return id;
     }

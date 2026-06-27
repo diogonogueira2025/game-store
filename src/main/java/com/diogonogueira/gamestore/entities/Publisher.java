@@ -25,6 +25,14 @@ public class Publisher implements Serializable {
     @OneToMany(mappedBy = "publisher")
     private Set<Game> games = new HashSet<>();
 
+    public Publisher() {
+    }
+
+    public Publisher(UUID id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
     public UUID getId() {
         return id;
     }

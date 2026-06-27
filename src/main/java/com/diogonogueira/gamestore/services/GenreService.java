@@ -29,12 +29,15 @@ public class GenreService {
         return genreRepository.findAll(pageable)
                 .map(genreMapper::toResponse);
     }
+
     private Genre findEntityById(UUID id) {
         return genreRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(id));
     }
+
     public GenreResponse findById(UUID id) {
-        return genreMapper.toResponse(findEntityById(id));
+        Genre genre = findEntityById(id);
+        return genreMapper.toResponse(genre);
     }
 
     @Transactional
