@@ -42,6 +42,17 @@ public class Game implements Serializable {
     )
     private Set<Genre> genres = new HashSet<>();
 
+    public Game() {
+    }
+
+    public Game(UUID id, String name, LocalDate releaseDate, BigDecimal price, Publisher publisher) {
+        this.id = id;
+        this.name = name;
+        this.releaseDate = releaseDate;
+        this.price = price;
+        this.publisher = publisher;
+    }
+
     public UUID getId() {
         return id;
     }

@@ -194,7 +194,7 @@ class GenreServiceTest {
                 .thenReturn(Optional.of(genre));
 
         assertThrows(DatabaseException.class, () -> genreService.deleteById(id));
-
+        
         verify(genreRepository).findById(id);
         verify(genreRepository, never()).delete(any());
     }
