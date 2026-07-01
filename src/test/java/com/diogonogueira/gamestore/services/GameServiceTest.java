@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -545,5 +546,26 @@ class GameServiceTest {
 
         verify(gameRepository).findById(id);
         verify(gameRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void shouldThrowResourceNotFoundExceptionWhenGameIsDeletedConcurrently() {
+        UUID id = UUID.randomUUID();
+        Game game = new Game(
+                id,
+                "Dark Souls",
+                LocalDate.of(2010, 10, 12),
+                BigDecimal.valueOf(210.90),
+                null);
+
+        when(gameRepository.findById(id))
+                .thenReturn(Optional.of(game));
+        doThrow(EmptyResultDataAccessException.class)
+                .when(gameRepository).deleteById(id);
+
+        assertThrows(ResourceNotFoundException.class, () -> gameService.deleteById(id));
+
+        verify(gameRepository).findById(id);
+        verify(gameRepository).deleteById(id);
     }
 }

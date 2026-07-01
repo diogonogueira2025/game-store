@@ -300,4 +300,17 @@ class GenreResourceTest {
 
         verify(genreService, never()).deleteById(any());
     }
+
+    @Test
+    void shouldReturnStatus404WhenGenreIsDeletedConcurrently() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        doThrow(new ResourceNotFoundException(id))
+                .when(genreService).deleteById(id);
+
+        mockMvc.perform(delete("/genres/" + id))
+                .andExpect(status().isNotFound());
+
+        verify(genreService).deleteById(id);
+    }
 }

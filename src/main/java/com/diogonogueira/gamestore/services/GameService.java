@@ -13,6 +13,7 @@ import com.diogonogueira.gamestore.services.exceptions.BusinessRuleException;
 import com.diogonogueira.gamestore.services.exceptions.DatabaseException;
 import com.diogonogueira.gamestore.services.exceptions.ResourceNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -92,7 +93,9 @@ public class GameService {
         findEntityById(id);
         try {
             gameRepository.deleteById(id);
-        } catch (DataIntegrityViolationException e) {
+        } catch (EmptyResultDataAccessException e) {
+            throw new ResourceNotFoundException(id);
+        }catch (DataIntegrityViolationException e) {
             throw new DatabaseException("Cannot delete game because it has associated records");
         }
     }

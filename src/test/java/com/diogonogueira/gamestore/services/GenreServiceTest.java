@@ -15,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -258,6 +259,23 @@ class GenreServiceTest {
                 .when(genreRepository).deleteById(id);
 
         assertThrows(DatabaseException.class, () -> genreService.deleteById(id));
+
+        verify(genreRepository).findById(id);
+        verify(genreRepository).deleteById(id);
+    }
+
+    @Test
+    void shouldThrowResourceNotFoundExceptionWhenGenreIsDeletedConcurrently() {
+        UUID id = UUID.randomUUID();
+        Genre genre = new Genre(id, "Multiplayer");
+
+        when(genreRepository.findById(id))
+                .thenReturn(Optional.of(genre));
+
+        doThrow(EmptyResultDataAccessException.class)
+                .when(genreRepository).deleteById(id);
+
+        assertThrows(ResourceNotFoundException.class, () -> genreService.deleteById(id));
 
         verify(genreRepository).findById(id);
         verify(genreRepository).deleteById(id);

@@ -14,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -269,6 +270,25 @@ class PublisherServiceTest {
                 .when(publisherRepository).deleteById(id);
 
         assertThrows(DatabaseException.class, () -> publisherService.deleteById(id));
+
+        verify(publisherRepository).findById(id);
+        verify(publisherRepository).deleteById(id);
+    }
+
+    @Test
+    void shouldThrowResourceNotFoundExceptionWhenPublisherIsDeletedConcurrently() {
+        UUID id = UUID.randomUUID();
+        Publisher publisher = new Publisher(id, "Square Enix");
+
+        when(publisherRepository.findById(id))
+                .thenReturn(Optional.of(publisher));
+
+        doThrow(EmptyResultDataAccessException.class)
+                .when(publisherRepository).deleteById(id);
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            publisherService.deleteById(id);
+        });
 
         verify(publisherRepository).findById(id);
         verify(publisherRepository).deleteById(id);
