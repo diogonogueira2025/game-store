@@ -1,5 +1,6 @@
 package com.diogonogueira.gamestore.resources.exceptions;
 
+import com.diogonogueira.gamestore.services.exceptions.BusinessRuleException;
 import com.diogonogueira.gamestore.services.exceptions.DatabaseException;
 import com.diogonogueira.gamestore.services.exceptions.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +31,7 @@ public class ResourceExceptionHandler {
     @ExceptionHandler(DatabaseException.class)
     public ResponseEntity<StandardError> database(DatabaseException e, HttpServletRequest request) {
         String error = "Database error";
-        HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
+        HttpStatus httpStatus = HttpStatus.CONFLICT;
         StandardError standardError = new StandardError(
                 Instant.now(),
                 httpStatus.value(),
@@ -40,4 +41,19 @@ public class ResourceExceptionHandler {
         );
         return ResponseEntity.status(httpStatus).body(standardError);
     }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<StandardError> businessRule(BusinessRuleException e, HttpServletRequest request) {
+        String error = "Business Rule error";
+        HttpStatus httpStatus = HttpStatus.UNPROCESSABLE_CONTENT;
+        StandardError standardError = new StandardError(
+                Instant.now(),
+                httpStatus.value(),
+                error,
+                e.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(httpStatus).body(standardError);
+    }
+
 }

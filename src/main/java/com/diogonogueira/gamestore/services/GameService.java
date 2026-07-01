@@ -9,7 +9,10 @@ import com.diogonogueira.gamestore.mappers.GameMapper;
 import com.diogonogueira.gamestore.repositories.GameRepository;
 import com.diogonogueira.gamestore.repositories.GenreRepository;
 import com.diogonogueira.gamestore.repositories.PublisherRepository;
+import com.diogonogueira.gamestore.services.exceptions.BusinessRuleException;
+import com.diogonogueira.gamestore.services.exceptions.DatabaseException;
 import com.diogonogueira.gamestore.services.exceptions.ResourceNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -62,6 +65,9 @@ public class GameService {
 
     @Transactional
     public GameResponse save(GameRequest gameRequest) {
+        if (gameRepository.existsByName(gameRequest.name())) {
+            throw new BusinessRuleException("Game already exists with name: " + gameRequest.name());
+        }
         Game game = gameMapper.toEntity(gameRequest);
         assignRelations(game, gameRequest);
         Game savedGame = gameRepository.save(game);
@@ -71,6 +77,11 @@ public class GameService {
     @Transactional
     public GameResponse update(UUID id, GameRequest gameRequest) {
         Game game = findEntityById(id);
+
+        if (!game.getName().equals(gameRequest.name())
+                && gameRepository.existsByName(gameRequest.name())) {
+            throw new BusinessRuleException("Game already exists with name: " + gameRequest.name());
+        }
         gameMapper.updateEntityFromRequest(gameRequest, game);
         assignRelations(game, gameRequest);
         return gameMapper.toResponse(game);
@@ -78,7 +89,11 @@ public class GameService {
 
     @Transactional
     public void deleteById(UUID id) {
-        Game game = findEntityById(id);
-        gameRepository.delete(game);
+        findEntityById(id);
+        try {
+            gameRepository.deleteById(id);
+        } catch (DataIntegrityViolationException e) {
+            throw new DatabaseException("Cannot delete game because it has associated records");
+        }
     }
 }

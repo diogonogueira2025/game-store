@@ -9,6 +9,7 @@ import com.diogonogueira.gamestore.mappers.GameMapper;
 import com.diogonogueira.gamestore.repositories.GameRepository;
 import com.diogonogueira.gamestore.repositories.GenreRepository;
 import com.diogonogueira.gamestore.repositories.PublisherRepository;
+import com.diogonogueira.gamestore.services.exceptions.BusinessRuleException;
 import com.diogonogueira.gamestore.services.exceptions.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -154,6 +155,8 @@ class GameServiceTest {
                 null
         );
 
+        when(gameRepository.existsByName("Dark Souls"))
+                .thenReturn(false);
         when(gameMapper.toEntity(gameRequest))
                 .thenReturn(game);
         when(publisherRepository.findById(publisherID))
@@ -169,11 +172,33 @@ class GameServiceTest {
 
         assertEquals(gameResponse, result);
 
+        verify(gameRepository).existsByName("Dark Souls");
         verify(gameMapper).toEntity(gameRequest);
         verify(publisherRepository).findById(publisherID);
         verify(genreRepository).findAllById(genreIds);
         verify(gameRepository).save(game);
         verify(gameMapper).toResponse(savedGame);
+    }
+
+    @Test
+    void shouldThrowBusinessRuleExceptionWhenGameDoesExist() {
+        GameRequest gameRequest = new GameRequest("Dark Souls",
+                LocalDate.of(2010, 10, 12),
+                BigDecimal.valueOf(210.90),
+                null,
+                null);
+
+        when(gameRepository.existsByName("Dark Souls"))
+                .thenReturn(true);
+
+        assertThrows(BusinessRuleException.class, () -> {
+            gameService.save(gameRequest);
+        });
+
+        verify(gameRepository).existsByName("Dark Souls");
+        verify(gameMapper, never()).toEntity(any());
+        verify(gameRepository, never()).save(any());
+        verify(gameMapper, never()).toResponse(any());
     }
 
     @Test
@@ -193,6 +218,8 @@ class GameServiceTest {
                 BigDecimal.valueOf(210.90),
                 null);
 
+        when(gameRepository.existsByName("Dark Souls"))
+                .thenReturn(false);
         when(gameMapper.toEntity(gameRequest))
                 .thenReturn(game);
         when(publisherRepository.findById(publisherId))
@@ -200,6 +227,7 @@ class GameServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> gameService.save(gameRequest));
 
+        verify(gameRepository).existsByName("Dark Souls");
         verify(gameMapper).toEntity(gameRequest);
         verify(publisherRepository).findById(publisherId);
         verify(genreRepository, never()).findAllById(any());
@@ -229,6 +257,8 @@ class GameServiceTest {
                 BigDecimal.valueOf(210.90),
                 null);
 
+        when(gameRepository.existsByName("Dark Souls"))
+                .thenReturn(false);
         when(gameMapper.toEntity(gameRequest))
                 .thenReturn(game);
         when(publisherRepository.findById(publisherId))
@@ -238,6 +268,7 @@ class GameServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> gameService.save(gameRequest));
 
+        verify(gameRepository).existsByName("Dark Souls");
         verify(gameMapper).toEntity(gameRequest);
         verify(publisherRepository).findById(publisherId);
         verify(genreRepository).findAllById(genreIds);
@@ -279,6 +310,8 @@ class GameServiceTest {
 
         when(gameRepository.findById(id))
                 .thenReturn(Optional.of(game));
+        when(gameRepository.existsByName("Super Mario"))
+                .thenReturn(false);
         when(publisherRepository.findById(publisherId))
                 .thenReturn(Optional.of(publisher));
         when(genreRepository.findAllById(genreIds))
@@ -291,10 +324,97 @@ class GameServiceTest {
         assertEquals(gameResponse, result);
 
         verify(gameRepository).findById(id);
+        verify(gameRepository).existsByName("Super Mario");
         verify(gameMapper).updateEntityFromRequest(gameRequest, game);
         verify(publisherRepository).findById(publisherId);
         verify(genreRepository).findAllById(genreIds);
         verify(gameMapper).toResponse(game);
+    }
+
+    @Test
+    void shouldNotThrowExceptionWhenUpdatingWithSameName() {
+        UUID id = UUID.randomUUID();
+        UUID publisherId = UUID.randomUUID();
+        Publisher publisher = new Publisher(publisherId, "Bandai");
+        UUID fpsId = UUID.randomUUID();
+        UUID actionId = UUID.randomUUID();
+        Set<UUID> genreIds = new HashSet<>(List.of(fpsId, actionId));
+        Genre fps = new Genre(fpsId, "FPS");
+        Genre action = new Genre(actionId, "Action");
+        List<Genre> genresList = List.of(fps, action);
+
+        GameRequest gameRequest = new GameRequest(
+                "Dark Souls",
+                LocalDate.of(2010, 10, 12),
+                BigDecimal.valueOf(210.90),
+                publisherId,
+                genreIds);
+        Game game = new Game(
+                id,
+                "Dark Souls",
+                LocalDate.of(2010, 10, 12),
+                BigDecimal.valueOf(210.90),
+                null);
+        GameResponse gameResponse = new GameResponse(
+                id,
+                "Dark Souls",
+                LocalDate.of(2010, 10, 12),
+                BigDecimal.valueOf(210.90),
+                null,
+                null);
+
+        when(gameRepository.findById(id))
+                .thenReturn(Optional.of(game));
+        when(publisherRepository.findById(publisherId))
+                .thenReturn(Optional.of(publisher));
+        when(genreRepository.findAllById(genreIds))
+                .thenReturn(genresList);
+        when(gameMapper.toResponse(game))
+                .thenReturn(gameResponse);
+
+        GameResponse result = gameService.update(id, gameRequest);
+
+        assertEquals(gameResponse, result);
+
+        verify(gameRepository).findById(id);
+        verify(gameRepository, never()).existsByName(any());
+        verify(gameMapper).updateEntityFromRequest(gameRequest, game);
+        verify(publisherRepository).findById(publisherId);
+        verify(genreRepository).findAllById(genreIds);
+        verify(gameMapper).toResponse(game);
+    }
+
+    @Test
+    void shouldThrowBusinessRuleExceptionWhenUpdatingToExistingName() {
+        UUID id = UUID.randomUUID();
+        Game existingGame = new Game(
+                id,
+                "Dark Souls",
+                LocalDate.of(2010, 10, 12),
+                BigDecimal.valueOf(210.90),
+                null);
+        GameRequest gameRequest = new GameRequest(
+                "Super Mario",
+                LocalDate.of(2002, 1, 20),
+                BigDecimal.valueOf(145.90),
+                null,
+                null);
+
+        when(gameRepository.findById(id))
+                .thenReturn(Optional.of(existingGame));
+        when(gameRepository.existsByName("Super Mario"))
+                .thenReturn(true);
+
+        assertThrows(BusinessRuleException.class, () -> {
+            gameService.update(id, gameRequest);
+        });
+
+        verify(gameRepository).findById(id);
+        verify(gameRepository).existsByName("Super Mario");
+        verify(gameMapper, never()).updateEntityFromRequest(any(), any());
+        verify(publisherRepository, never()).findById(any());
+        verify(genreRepository, never()).findAllById(any());
+        verify(gameMapper, never()).toResponse(any());
     }
 
     @Test
@@ -306,13 +426,17 @@ class GameServiceTest {
                 BigDecimal.valueOf(145.90),
                 null,
                 null);
+
         when(gameRepository.findById(id))
                 .thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> gameService.update(id, gameRequest));
 
         verify(gameRepository).findById(id);
+        verify(gameRepository, never()).existsByName(any());
         verify(gameMapper, never()).updateEntityFromRequest(any(), any());
+        verify(publisherRepository, never()).findById(any());
+        verify(genreRepository, never()).findAllById(any());
         verify(gameMapper, never()).toResponse(any());
     }
 
@@ -336,13 +460,17 @@ class GameServiceTest {
 
         when(gameRepository.findById(id))
                 .thenReturn(Optional.of(game));
+        when(gameRepository.existsByName("Super Mario"))
+                .thenReturn(false);
         when(publisherRepository.findById(publisherId))
                 .thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> gameService.update(id, gameRequest));
 
         verify(gameRepository).findById(id);
+        verify(gameRepository).existsByName("Super Mario");
         verify(gameMapper).updateEntityFromRequest(gameRequest, game);
+        verify(publisherRepository).findById(publisherId);
         verify(genreRepository, never()).findAllById(any());
         verify(gameMapper, never()).toResponse(any());
     }
@@ -371,6 +499,8 @@ class GameServiceTest {
 
         when(gameRepository.findById(id))
                 .thenReturn(Optional.of(game));
+        when(gameRepository.existsByName("Super Mario"))
+                .thenReturn(false);
         when(publisherRepository.findById(publisherId))
                 .thenReturn(Optional.of(publisher));
         when(genreRepository.findAllById(genreIds))
@@ -379,6 +509,7 @@ class GameServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> gameService.update(id, gameRequest));
 
         verify(gameRepository).findById(id);
+        verify(gameRepository).existsByName("Super Mario");
         verify(gameMapper).updateEntityFromRequest(gameRequest, game);
         verify(genreRepository).findAllById(genreIds);
         verify(gameMapper, never()).toResponse(any());
@@ -400,7 +531,7 @@ class GameServiceTest {
         gameService.deleteById(id);
 
         verify(gameRepository).findById(id);
-        verify(gameRepository).delete(game);
+        verify(gameRepository).deleteById(id);
     }
 
     @Test
@@ -413,6 +544,6 @@ class GameServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> gameService.deleteById(id));
 
         verify(gameRepository).findById(id);
-        verify(gameRepository, never()).delete(any());
+        verify(gameRepository, never()).deleteById(any());
     }
 }

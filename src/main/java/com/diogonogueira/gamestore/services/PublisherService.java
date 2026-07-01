@@ -5,8 +5,10 @@ import com.diogonogueira.gamestore.dtos.publisher.PublisherResponse;
 import com.diogonogueira.gamestore.entities.Publisher;
 import com.diogonogueira.gamestore.mappers.PublisherMapper;
 import com.diogonogueira.gamestore.repositories.PublisherRepository;
+import com.diogonogueira.gamestore.services.exceptions.BusinessRuleException;
 import com.diogonogueira.gamestore.services.exceptions.DatabaseException;
 import com.diogonogueira.gamestore.services.exceptions.ResourceNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,9 @@ public class PublisherService {
 
     @Transactional
     public PublisherResponse save(PublisherRequest publisherRequest) {
+        if (publisherRepository.existsByName(publisherRequest.name())) {
+            throw new BusinessRuleException("Publisher already exists with name: " + publisherRequest.name());
+        }
         Publisher publisher = publisherMapper.toEntity(publisherRequest);
         Publisher savedPublisher = publisherRepository.save(publisher);
         return publisherMapper.toResponse(savedPublisher);
@@ -50,16 +55,23 @@ public class PublisherService {
     @Transactional
     public PublisherResponse update(UUID id, PublisherRequest publisherRequest) {
         Publisher publisher = findEntityById(id);
+
+        if (!publisher.getName().equals(publisherRequest.name())
+                && publisherRepository.existsByName(publisherRequest.name())) {
+            throw new BusinessRuleException("Publisher already exists with name: " + publisherRequest.name());
+        }
         publisherMapper.updateEntityFromRequest(publisherRequest, publisher);
         return publisherMapper.toResponse(publisher);
     }
 
     @Transactional
     public void deleteById(UUID id) {
-        Publisher publisher = findEntityById(id);
-        if (!publisher.getGames().isEmpty()) {
+        findEntityById(id);
+
+        try {
+            publisherRepository.deleteById(id);
+        } catch (DataIntegrityViolationException e) {
             throw new DatabaseException("Cannot delete publisher because it has associated games");
         }
-        publisherRepository.delete(publisher);
     }
 }

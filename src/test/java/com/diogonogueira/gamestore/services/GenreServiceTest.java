@@ -6,6 +6,7 @@ import com.diogonogueira.gamestore.entities.Game;
 import com.diogonogueira.gamestore.entities.Genre;
 import com.diogonogueira.gamestore.mappers.GenreMapper;
 import com.diogonogueira.gamestore.repositories.GenreRepository;
+import com.diogonogueira.gamestore.services.exceptions.BusinessRuleException;
 import com.diogonogueira.gamestore.services.exceptions.DatabaseException;
 import com.diogonogueira.gamestore.services.exceptions.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -106,6 +108,8 @@ class GenreServiceTest {
         Genre savedGenre = new Genre(id, "MMORPG");
         GenreResponse genreResponse = new GenreResponse(id, "MMORPG");
 
+        when(genreRepository.existsByName("MMORPG"))
+                .thenReturn(false);
         when(genreMapper.toEntity(genreRequest))
                 .thenReturn(genre);
         when(genreRepository.save(genre))
@@ -117,9 +121,27 @@ class GenreServiceTest {
 
         assertEquals(genreResponse, result);
 
+        verify(genreRepository).existsByName("MMORPG");
         verify(genreMapper).toEntity(genreRequest);
         verify(genreRepository).save(genre);
         verify(genreMapper).toResponse(savedGenre);
+    }
+
+    @Test
+    void shouldThrowBusinessRuleExceptionWhenGenreDoesExist() {
+        GenreRequest genreRequest = new GenreRequest("FPS");
+
+        when(genreRepository.existsByName("FPS"))
+                .thenReturn(true);
+
+        assertThrows(BusinessRuleException.class, () -> {
+            genreService.save(genreRequest);
+        });
+
+        verify(genreRepository).existsByName("FPS");
+        verify(genreMapper, never()).toEntity(any());
+        verify(genreRepository, never()).save(any());
+        verify(genreMapper, never()).toResponse(any());
     }
 
     @Test
@@ -129,6 +151,8 @@ class GenreServiceTest {
         Genre genre = new Genre(id, "FPS");
         GenreResponse genreResponse = new GenreResponse(id, "Action");
 
+        when(genreRepository.existsByName("Action"))
+                .thenReturn(false);
         when(genreRepository.findById(id))
                 .thenReturn(Optional.of(genre));
         when(genreMapper.toResponse(genre))
@@ -137,23 +161,62 @@ class GenreServiceTest {
         GenreResponse result = genreService.update(id, genreRequest);
         assertEquals(genreResponse, result);
 
+        verify(genreRepository).existsByName("Action");
         verify(genreRepository).findById(id);
         verify(genreMapper).updateEntityFromRequest(genreRequest, genre);
         verify(genreMapper).toResponse(genre);
     }
 
     @Test
+    void shouldThrowBusinessRuleExceptionWhenUpdatingToExistingName() {
+        UUID id = UUID.randomUUID();
+        Genre existingGenre = new Genre(id, "RPG");
+        GenreRequest genreRequest = new GenreRequest("FPS");
+
+        when(genreRepository.findById(id))
+                .thenReturn(Optional.of(existingGenre));
+        when(genreRepository.existsByName("FPS"))
+                .thenReturn(true);
+
+        assertThrows(BusinessRuleException.class, () -> {
+            genreService.update(id, genreRequest);
+        });
+
+        verify(genreRepository).findById(id);
+        verify(genreRepository).existsByName("FPS");
+        verify(genreMapper, never()).updateEntityFromRequest(any(), any());
+        verify(genreMapper, never()).toResponse(any());
+    }
+
+    @Test
     void shouldThrowResourceNotFoundExceptionWhenUpdatingGenreDoesNotExist() {
         UUID id = UUID.randomUUID();
         GenreRequest genreRequest = new GenreRequest("Action");
+
         when(genreRepository.findById(id))
                 .thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> genreService.update(id, genreRequest));
 
         verify(genreRepository).findById(id);
+        verify(genreRepository, never()).existsByName(any());
         verify(genreMapper, never()).updateEntityFromRequest(any(), any());
         verify(genreMapper, never()).toResponse(any());
+    }
+    @Test
+    void shouldNotThrowExceptionWhenUpdatingWithSameName() {
+        UUID id = UUID.randomUUID();
+        Genre existingGenre = new Genre(id, "RPG");
+        GenreRequest genreRequest = new GenreRequest("RPG"); // mesmo nome
+
+        when(genreRepository.findById(id))
+                .thenReturn(Optional.of(existingGenre));
+
+        assertDoesNotThrow(() -> genreService.update(id, genreRequest));
+
+        verify(genreRepository).findById(id);
+        verify(genreRepository, never()).existsByName(any()); // nem precisa checar, curto-circuito do &&
+        verify(genreMapper).updateEntityFromRequest(any(), any());
     }
 
     @Test
@@ -167,7 +230,7 @@ class GenreServiceTest {
         genreService.deleteById(id);
 
         verify(genreRepository).findById(id);
-        verify(genreRepository).delete(genre);
+        verify(genreRepository).deleteById(id);
     }
 
     @Test
@@ -180,22 +243,23 @@ class GenreServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> genreService.deleteById(id));
 
         verify(genreRepository).findById(id);
-        verify(genreRepository, never()).delete(any());
+        verify(genreRepository, never()).deleteById(any());
     }
 
     @Test
     void shouldThrowDatabaseExceptionWhenDeletingGenreWithAssociatedGames() {
         UUID id = UUID.randomUUID();
         Genre genre = new Genre(id, "Multiplayer");
-        Game game = new Game();
-        genre.getGames().add(game);
 
         when(genreRepository.findById(id))
                 .thenReturn(Optional.of(genre));
 
+        doThrow(DataIntegrityViolationException.class)
+                .when(genreRepository).deleteById(id);
+
         assertThrows(DatabaseException.class, () -> genreService.deleteById(id));
-        
+
         verify(genreRepository).findById(id);
-        verify(genreRepository, never()).delete(any());
+        verify(genreRepository).deleteById(id);
     }
 }
